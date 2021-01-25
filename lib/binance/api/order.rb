@@ -48,6 +48,19 @@ module Binance
                         params: params, security_type: :trade, tld: Configuration.tld)
         end
 
+        def create_oco!(symbol: nil, side: nil, quantity: nil, price: nil, stopPrice: nil,
+                        stopLimitPrice: nil, stopLimitTimeInForce: nil, test: false)
+          timestamp = Configuration.timestamp
+          params = {
+            symbol: symbol, side: side, quantity: quantity, price: price, stopPrice: stopPrice,
+            stopLimitPrice: stopLimitPrice, stopLimitTimeInForce: stopLimitTimeInForce, timestamp: timestamp
+          }.delete_if { |key, value| value.nil? }
+          ensure_required_create_keys!(params: params.merge(type: :oco))
+          path = "/api/v3/order/oco#{"/test" if test}"
+          Request.send!(api_key_type: :trading, method: :post, path: path,
+                        params: params, security_type: :trade, tld: Configuration.tld)
+        end
+
         def status!(orderId: nil, originalClientOrderId: nil, recvWindow: nil, symbol: nil)
           raise Error.new(message: "symbol is required") if symbol.nil?
           raise Error.new(message: "either orderid or originalclientorderid " \
@@ -73,6 +86,8 @@ module Binance
             [:price, :stopPrice, :timeInForce].freeze
           when :limit_maker
             [:price].freeze
+          when :oco
+            [:stopPrice, :stopLimitPrice, :stopLimitTimeInForce]
           else
             [].freeze
           end
