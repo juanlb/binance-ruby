@@ -34,16 +34,29 @@ module Binance
 
         def create!(icebergQuantity: nil, newClientOrderId: nil, newOrderResponseType: nil,
                     price: nil, quantity: nil, recvWindow: nil, stopPrice: nil, symbol: nil,
-                    side: nil, type: nil, timeInForce: nil, test: false)
+                    side: nil, type: nil, timeInForce: nil, test: false, quoteOrderQty: nil)
           timestamp = Configuration.timestamp
           params = {
             icebergQty: icebergQuantity, newClientOrderId: newClientOrderId,
             newOrderRespType: newOrderResponseType, price: price, quantity: quantity,
             recvWindow: recvWindow, stopPrice: stopPrice, symbol: symbol, side: side,
-            type: type, timeInForce: timeInForce, timestamp: timestamp,
+            type: type, timeInForce: timeInForce, timestamp: timestamp, quoteOrderQty: quoteOrderQty
           }.delete_if { |key, value| value.nil? }
           ensure_required_create_keys!(params: params)
           path = "/api/v3/order#{"/test" if test}"
+          Request.send!(api_key_type: :trading, method: :post, path: path,
+                        params: params, security_type: :trade, tld: Configuration.tld)
+        end
+
+        def create_oco!(symbol: nil, side: nil, quantity: nil, price: nil, stopPrice: nil,
+                        stopLimitPrice: nil, stopLimitTimeInForce: nil, test: false)
+          timestamp = Configuration.timestamp
+          params = {
+            symbol: symbol, side: side, quantity: quantity, price: price, stopPrice: stopPrice,
+            stopLimitPrice: stopLimitPrice, stopLimitTimeInForce: stopLimitTimeInForce, timestamp: timestamp
+          }.delete_if { |key, value| value.nil? }
+          ensure_required_create_keys!(params: params.merge(type: :oco))
+          path = "/api/v3/order/oco#{"/test" if test}"
           Request.send!(api_key_type: :trading, method: :post, path: path,
                         params: params, security_type: :trade, tld: Configuration.tld)
         end
@@ -73,19 +86,26 @@ module Binance
             [:price, :stopPrice, :timeInForce].freeze
           when :limit_maker
             [:price].freeze
+          when :oco
+            [:stopPrice, :stopLimitPrice, :stopLimitTimeInForce]
           else
             [].freeze
           end
         end
 
         def ensure_required_create_keys!(params:)
-          keys = required_create_keys.dup.concat(additional_required_create_keys(type: params[:type]))
+          keys = required_create_keys(type: params[:type]).dup.concat(additional_required_create_keys(type: params[:type]))
           missing_keys = keys.select { |key| params[key].nil? }
           raise Error.new(message: "required keys are missing: #{missing_keys.join(", ")}") unless missing_keys.empty?
         end
 
-        def required_create_keys
-          [:symbol, :side, :type, :quantity, :timestamp].freeze
+        def required_create_keys(type:)
+          case type
+          when :market
+            [:symbol, :side, :type, :timestamp].freeze
+          else
+            [:symbol, :side, :type, :quantity, :timestamp].freeze
+          end
         end
       end
     end
