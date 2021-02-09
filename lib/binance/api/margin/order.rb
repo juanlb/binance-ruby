@@ -17,8 +17,35 @@ module Binance
             }.delete_if { |_, value| value.nil? }
             ensure_required_create_keys!(params: params)
             path = "/sapi/v1/margin/order"
-            Request.send!(api_key_type: :trading, method: :post, path: path,
+            Request.send!(api_key_type: :trading, method: :margin_post, path: path,
                           params: params, security_type: :trade, tld: Configuration.tld)
+          end
+
+          def cancel!(orderId: nil, originalClientOrderId: nil, newClientOrderId: nil, recvWindow: nil, symbol: nil)
+            raise Error.new(message: "symbol is required") if symbol.nil?
+            raise Error.new(message: "either orderid or originalclientorderid " \
+                            "is required") if orderId.nil? && originalClientOrderId.nil?
+            timestamp = Configuration.timestamp
+            params = { orderId: orderId, origClientOrderId: originalClientOrderId,
+                       newClientOrderId: newClientOrderId, recvWindow: recvWindow,
+                       symbol: symbol, timestamp: timestamp }.delete_if { |key, value| value.nil? }
+            Request.send!(api_key_type: :trading, method: :margin_delete, path: "/sapi/v1/margin/order",
+                          params: params, security_type: :trade, tld: Configuration.tld)
+          end
+
+          def status!(orderId: nil, symbol: nil)
+            timestamp = Configuration.timestamp
+            params = {orderId: orderId, symbol: symbol, timestamp: timestamp}
+            path = "/sapi/v1/margin/order"
+            Request.send!(api_key_type: :trading, method: :get, path: path,
+              params: params, security_type: :trade, tld: Configuration.tld)
+          end
+
+          def all_open!(recvWindow: 5000, symbol: nil)
+            timestamp = Configuration.timestamp
+            params = { recvWindow: recvWindow, symbol: symbol, timestamp: timestamp }
+            Request.send!(api_key_type: :read_info, path: "/sapi/v1/margin/openOrders",
+                          params: params, security_type: :user_data, tld: Configuration.tld)
           end
 
           private
